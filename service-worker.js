@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tchappe-cache-v1';
+const CACHE_NAME = 'tchappe-cache-v3';
 
 const ASSETS = [
   './',
