@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Prenotazioni · Lou Tchappé</title>
 <meta name="theme-color" content="#FAF7F2">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Prenotazioni">
 <link rel="stylesheet" href="css/styles.css">
@@ -19,7 +19,7 @@
   <div class="sync-indicator" id="syncIndicator">⏳ Sincronizzazione…</div>
   <div class="toast" id="toast"></div>
 
-  <!-- ===================== LOGIN ===================== -->
+  <!-- LOGIN -->
   <section class="screen active" id="screen-login">
     <div class="setup-wrap">
       <div class="setup-logo">🍽️</div>
@@ -28,8 +28,7 @@
       <div class="setup-card">
         <div class="field-group">
           <label class="field-label" for="loginPassword">Password</label>
-          <input type="password" class="text-input" id="loginPassword"
-            placeholder="Password" autocomplete="off" autocorrect="off">
+          <input type="password" class="text-input" id="loginPassword" placeholder="Password" autocomplete="off">
         </div>
         <p class="setup-error hidden" id="loginError">Password non corretta.</p>
         <button class="save-btn" id="loginBtn" style="margin-top:8px">Accedi</button>
@@ -37,7 +36,39 @@
     </div>
   </section>
 
-  <!-- ===================== DASHBOARD ===================== -->
+  <!-- VISTA SOLA LETTURA (colleghi) -->
+  <section class="screen" id="screen-readonly">
+    <div class="topbar">
+      <h1>Lou Tchappé</h1>
+    </div>
+    <div class="dashboard-content" style="padding-bottom:0">
+      <div class="date-service-card">
+        <div class="date-row">
+          <button class="date-nav-btn" id="roPrevDay">‹</button>
+          <span class="date-label" id="roDateLabel">Oggi</span>
+          <button class="date-nav-btn" id="roNextDay">›</button>
+        </div>
+      </div>
+    </div>
+    <div class="list-content" style="gap:0; padding-top:0">
+      <div class="ro-service-section" id="ro-lunch-section">
+        <div class="ro-service-header">
+          <span class="ro-service-title">🌤️ Pranzo</span>
+          <span class="ro-service-stats" id="ro-lunch-stats"></span>
+        </div>
+        <div id="ro-lunch-list"></div>
+      </div>
+      <div class="ro-service-section" id="ro-dinner-section">
+        <div class="ro-service-header">
+          <span class="ro-service-title">🌙 Cena</span>
+          <span class="ro-service-stats" id="ro-dinner-stats"></span>
+        </div>
+        <div id="ro-dinner-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
   <section class="screen" id="screen-dashboard">
     <div class="topbar">
       <h1>Prenotazioni</h1>
@@ -73,7 +104,7 @@
     <button class="fab-new-booking hidden" id="fabNewBooking">＋ Nuova prenotazione</button>
   </section>
 
-  <!-- ===================== LISTA ===================== -->
+  <!-- LISTA -->
   <section class="screen" id="screen-list">
     <div class="topbar">
       <h1>Prenotazioni</h1>
@@ -96,7 +127,7 @@
     <button class="fab-new-booking hidden" id="fabNewBookingList">＋ Nuova prenotazione</button>
   </section>
 
-  <!-- ===================== RICERCA ===================== -->
+  <!-- RICERCA -->
   <section class="screen" id="screen-search">
     <div class="topbar"><h1>Ricerca</h1></div>
     <div class="search-bar-wrap">
@@ -105,7 +136,7 @@
     <div class="list-content" id="searchResults"></div>
   </section>
 
-  <!-- ===================== ANTEPRIMA ===================== -->
+  <!-- ANTEPRIMA -->
   <section class="screen" id="screen-preview">
     <div class="topbar">
       <button class="icon-btn" id="previewBackBtn">←</button>
@@ -135,7 +166,7 @@
     <div style="height:32px"></div>
   </section>
 
-  <!-- ===================== IMPOSTAZIONI ===================== -->
+  <!-- IMPOSTAZIONI -->
   <section class="screen" id="screen-config">
     <div class="topbar"><h1>Impostazioni</h1></div>
     <div class="config-content">
@@ -176,14 +207,14 @@
           <span id="cfgRole" style="font-weight:700;color:var(--color-primary)"></span>
         </div>
         <button class="save-btn" id="logoutBtn" style="background:var(--color-surface-alt);color:var(--color-ink);height:48px;font-size:14px;margin-top:8px">
-          Esci (cambia account)
+          Esci
         </button>
       </div>
       <div class="config-save-confirm" id="cfgSaveConfirm">✓ Salvato</div>
     </div>
   </section>
 
-  <!-- ===================== FORM PRENOTAZIONE ===================== -->
+  <!-- FORM PRENOTAZIONE -->
   <section class="screen" id="screen-form">
     <div class="topbar">
       <button class="icon-btn" id="formBackBtn">←</button>
