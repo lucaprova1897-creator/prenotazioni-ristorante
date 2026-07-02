@@ -1,12 +1,7 @@
-/**
- * app.js
- * Bootstrap: gestisce login, ruoli, caricamento dati e tutti gli event listener.
- */
-
 document.addEventListener('DOMContentLoaded', () => init());
 
 async function init() {
-  // Prova a ripristinare la sessione dal localStorage
+  bindLogin();
   if (DB.restoreSession()) {
     await enterApp();
   } else {
@@ -16,18 +11,15 @@ async function init() {
   watchOnlineStatus();
 }
 
-/* ==========================================================================
-   LOGIN
-   ========================================================================== */
 function showLogin() {
   document.getElementById('screen-login').classList.add('active');
   document.getElementById('bottomNav').style.display = 'none';
 }
 
 function bindLogin() {
-  const btn      = document.getElementById('loginBtn');
-  const input    = document.getElementById('loginPassword');
-  const errEl    = document.getElementById('loginError');
+  const btn   = document.getElementById('loginBtn');
+  const input = document.getElementById('loginPassword');
+  const errEl = document.getElementById('loginError');
 
   async function tryLogin() {
     const pw   = input.value.trim();
@@ -47,13 +39,11 @@ function bindLogin() {
 }
 
 async function enterApp() {
-  // Mostra/nasconde pulsanti di modifica in base al ruolo
   const canEdit = DB.canEdit();
   document.querySelectorAll('.fab-new-booking').forEach(el => {
     el.classList.toggle('hidden', !canEdit);
   });
 
-  // Inizializza stato navigazione
   UI.state.selectedDate    = Utils.todayISO();
   UI.state.selectedService = Utils.currentService();
   UI.state.previewDate     = UI.state.selectedDate;
@@ -61,22 +51,16 @@ async function enterApp() {
 
   bindAll();
 
-  // Carica dati
   UI.showSyncIndicator(true);
   await Bookings.loadAll();
   UI.showSyncIndicator(false);
 
-  // Nasconde login, mostra nav e dashboard
   document.getElementById('screen-login').classList.remove('active');
   document.getElementById('bottomNav').style.display = 'flex';
   UI.showScreen('dashboard');
 }
 
-/* ==========================================================================
-   BIND TUTTI I LISTENER
-   ========================================================================== */
 function bindAll() {
-  bindLogin();
   bindBottomNav();
   bindDashboard();
   bindList();
@@ -142,7 +126,6 @@ function bindSearch() {
 }
 
 function bindConfig() {
-  // Mostra ruolo attivo
   const roleEl = document.getElementById('cfgRole');
   if (roleEl) roleEl.textContent = DB.canEdit() ? 'Admin (modifica)' : 'Lettura';
 
