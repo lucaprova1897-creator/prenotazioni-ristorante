@@ -37,8 +37,10 @@ self.addEventListener('fetch', e => {
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(res => {
-        if (res && res.status === 200) {
-          caches.open(CACHE_NAME).then(c => c.put(e.request, res.clone()));
+        // Clona PRIMA di usare il body
+        if (res && res.status === 200 && res.type !== 'opaque') {
+          const resClone = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(e.request, resClone));
         }
         return res;
       }).catch(() => caches.match('./index.html'));
