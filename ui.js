@@ -1,10 +1,3 @@
-/**
- * ui.js
- * Logica di presentazione. I metodi che toccano prenotazioni sono ora async
- * perché Bookings legge/scrive su JSONBin. Tutto il resto (slot, config,
- * navigazione) resta sincrono come prima.
- */
-
 const UI = {
   state: {
     currentScreen: 'dashboard',
@@ -17,26 +10,20 @@ const UI = {
     previewService: null,
   },
 
-  /* ======================================================================
-     NAVIGAZIONE
-     ====================================================================== */
-
   showScreen(screenName) {
     document.querySelectorAll('.screen').forEach((el) => el.classList.remove('active'));
     const target = document.getElementById(`screen-${screenName}`);
     if (target) target.classList.add('active');
-
     document.querySelectorAll('.nav-item').forEach((el) => {
       el.classList.toggle('active', el.dataset.screen === screenName);
     });
-
     this.state.currentScreen = screenName;
-
     if (screenName === 'dashboard') this.renderDashboard();
     if (screenName === 'list') this.renderList();
     if (screenName === 'config') this.renderConfig();
     if (screenName === 'search') document.getElementById('searchInput').focus();
     if (screenName === 'preview') this.renderPreview();
+    if (screenName === 'readonly') this.renderReadOnlyView();
   },
 
   toast(message, type = 'default') {
@@ -52,20 +39,14 @@ const UI = {
     if (el) el.classList.toggle('visible', show);
   },
 
-  /* ======================================================================
-     DASHBOARD
-     ====================================================================== */
-
   renderDashboard() {
     const { selectedDate, selectedService } = this.state;
     document.getElementById('dashDateLabel').textContent = this.dateLabel(selectedDate);
     document.getElementById('btnServiceLunch').classList.toggle('active', selectedService === 'lunch');
     document.getElementById('btnServiceDinner').classList.toggle('active', selectedService === 'dinner');
-
     const stats = Bookings.getStatsForDateAndService(selectedDate, selectedService);
     document.getElementById('statGuests').textContent = stats.totalGuests;
     document.getElementById('statTables').textContent = stats.totalTablesBooked;
-
     this.renderTimeline('dashTimeline', selectedDate, selectedService, true);
   },
 
@@ -123,21 +104,16 @@ const UI = {
     return cfg.services[key]?.label || key;
   },
 
-  /* ======================================================================
-     LISTA PRENOTAZIONI
-     ====================================================================== */
-
   renderList() {
     const { selectedDate, selectedService } = this.state;
     document.getElementById('listDateLabel').textContent = this.dateLabel(selectedDate);
     document.getElementById('listBtnLunch').classList.toggle('active', selectedService === 'lunch');
     document.getElementById('listBtnDinner').classList.toggle('active', selectedService === 'dinner');
-
     const bookings = Bookings.getByDateAndService(selectedDate, selectedService);
     this.renderBookingRows('listContent', bookings, {
       emptyIcon: '🍽️',
       emptyTitle: 'Nessuna prenotazione',
-      emptyText: `Nessuna prenotazione per questo servizio.`,
+      emptyText: 'Nessuna prenotazione per questo servizio.',
     });
   },
 
@@ -145,12 +121,7 @@ const UI = {
     const container = document.getElementById(containerId);
     container.innerHTML = '';
     if (bookings.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <span class="empty-icon">${emptyConfig.emptyIcon}</span>
-          <strong>${emptyConfig.emptyTitle}</strong>
-          <span>${emptyConfig.emptyText}</span>
-        </div>`;
+      container.innerHTML = `<div class="empty-state"><span class="empty-icon">${emptyConfig.emptyIcon}</span><strong>${emptyConfig.emptyTitle}</strong><span>${emptyConfig.emptyText}</span></div>`;
       return;
     }
     for (const b of bookings) container.appendChild(this.buildBookingRow(b));
@@ -160,13 +131,11 @@ const UI = {
     const row = document.createElement('div');
     row.className = 'booking-row';
     row.dataset.status = b.status;
-
     const tags = [];
     if (b.dogs > 0) tags.push(`<span class="tag">🐾 ${b.dogs}</span>`);
     if (b.intolerances) tags.push(`<span class="tag tag-warning">⚠️ ${this.escapeHTML(b.intolerances)}</span>`);
     if (b.doubleShift) tags.push(`<span class="tag tag-warning">⏱️ libera per le ${b.doubleShift.releaseTime}</span>`);
     if (b.zone !== 'any') tags.push(`<span class="tag">${ZONE_LABELS[b.zone]}</span>`);
-
     row.innerHTML = `
       <div class="time-block">
         <span class="time-value">${b.time}</span>
@@ -180,25 +149,22 @@ const UI = {
         ${tags.length ? `<div class="booking-tags">${tags.join('')}</div>` : ''}
         ${b.phone ? `<a class="booking-phone-link" href="${Utils.telLink(b.phone)}" onclick="event.stopPropagation()">📞 ${this.escapeHTML(b.phone)}</a>` : ''}
       </div>
-      ${b.isNew ? `<button class="new-badge" type="button" aria-label="Segna come trascritta">Nuova</button>` : ''}
+      ${b.isNew ? `<button class="new-badge" type="button">Nuova</button>` : ''}
     `;
-
     if (b.isNew) {
       const badge = row.querySelector('.new-badge');
       badge.addEventListener('click', async (e) => {
         e.stopPropagation();
+        if (!DB.canEdit()) return;
         badge.textContent = '…';
         this.showSyncIndicator(true);
         await Bookings.markAsTranscribed(b.id);
         this.showSyncIndicator(false);
         this.toast('Segnata come trascritta ✓');
         if (this.state.currentScreen === 'list') this.renderList();
-        if (this.state.currentScreen === 'search') {
-          this.renderSearch(document.getElementById('searchInput').value);
-        }
+        if (this.state.currentScreen === 'search') this.renderSearch(document.getElementById('searchInput').value);
       });
     }
-
     row.addEventListener('click', () => { if (DB.canEdit()) this.openEditForm(b.id); });
     return row;
   },
@@ -209,10 +175,6 @@ const UI = {
     div.textContent = str;
     return div.innerHTML;
   },
-
-  /* ======================================================================
-     RICERCA
-     ====================================================================== */
 
   renderSearch(query) {
     const container = document.getElementById('searchResults');
@@ -225,19 +187,59 @@ const UI = {
     });
   },
 
-  /* ======================================================================
-     FORM PRENOTAZIONE
-     ====================================================================== */
+  renderReadOnlyView() {
+    const date = this.state.selectedDate;
+    document.getElementById('roDateLabel').textContent = this.dateLabel(date);
+
+    ['lunch', 'dinner'].forEach(serviceKey => {
+      const bookings = Bookings.getByDateAndService(date, serviceKey)
+        .filter(b => b.status !== STATUS.CANCELLED);
+      const container = document.getElementById(`ro-${serviceKey}-list`);
+      const stats = document.getElementById(`ro-${serviceKey}-stats`);
+      const totalGuests = bookings.reduce((s, b) => s + b.people, 0);
+      stats.textContent = `${bookings.length} tavoli · ${totalGuests} coperti`;
+      container.innerHTML = '';
+      if (bookings.length === 0) {
+        container.innerHTML = '<div class="ro-empty">Nessuna prenotazione</div>';
+        return;
+      }
+      bookings.forEach(b => {
+        const row = document.createElement('div');
+        row.className = 'ro-row';
+        const extras = [];
+        if (b.zone !== 'any') extras.push(ZONE_LABELS[b.zone]);
+        if (b.dogs > 0) extras.push(`🐾 ${b.dogs} ${b.dogs === 1 ? 'cane' : 'cani'}`);
+        if (b.doubleShift) extras.push(`⏱️ libera ${b.doubleShift.releaseTime}`);
+        const details = [];
+        if (b.intolerances) details.push(`⚠️ <strong>Intolleranze:</strong> ${this.escapeHTML(b.intolerances)}`);
+        if (b.specialNeeds) details.push(`♿ <strong>Esigenze:</strong> ${this.escapeHTML(b.specialNeeds)}`);
+        if (b.notes) details.push(`📝 <strong>Note:</strong> ${this.escapeHTML(b.notes)}`);
+        row.innerHTML = `
+          <div class="ro-row-main">
+            <span class="ro-time">${b.time}</span>
+            <div class="ro-info">
+              <div class="ro-name-line">
+                <span class="ro-name">${this.escapeHTML(b.name) || '(senza nome)'}</span>
+                <span class="ro-people">${b.people} pers.</span>
+              </div>
+              ${extras.length ? `<div class="ro-tags">${extras.map(e => `<span class="tag">${e}</span>`).join('')}</div>` : ''}
+              ${details.length ? `<div class="ro-details">${details.join('<br>')}</div>` : ''}
+              ${b.phone ? `<a class="booking-phone-link" href="${Utils.telLink(b.phone)}">📞 ${this.escapeHTML(b.phone)}</a>` : ''}
+            </div>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    });
+  },
 
   openNewForm(overrides = {}) {
     this.state.editingBookingId = null;
     this.state.formZone = 'any';
     this.state.formStatus = STATUS.CONFIRMED;
-
     document.getElementById('formTitle').textContent = 'Nuova prenotazione';
     document.getElementById('statusFieldGroup').classList.add('hidden');
     document.getElementById('deleteLink').classList.add('hidden');
-
     document.getElementById('fName').value = '';
     document.getElementById('fPhone').value = '';
     document.getElementById('fIntolerances').value = '';
@@ -246,17 +248,14 @@ const UI = {
     this.setPeopleValue(2);
     this.setDogsValue(0);
     this.collapseOptional();
-
     const date = overrides.date || this.state.selectedDate || Utils.todayISO();
     const service = overrides.service || this.state.selectedService || Utils.currentService();
-
     document.getElementById('fDate').value = date;
     this.setFormService(service);
     this.setFormZone('any');
     this.populateSlotGrid();
     if (overrides.time) this.selectSlot(overrides.time);
     else this.autoSelectFirstAvailableSlot();
-
     this.updateSaveButtonState();
     this.showScreen('form');
   },
@@ -264,26 +263,21 @@ const UI = {
   openEditForm(bookingId) {
     const b = Bookings.getById(bookingId);
     if (!b) return;
-
     this.state.editingBookingId = bookingId;
     this.state.formZone = b.zone;
     this.state.formStatus = b.status;
-
     document.getElementById('formTitle').textContent = 'Modifica prenotazione';
     document.getElementById('statusFieldGroup').classList.remove('hidden');
     document.getElementById('deleteLink').classList.remove('hidden');
-
     document.getElementById('fName').value = b.name;
     document.getElementById('fPhone').value = b.phone;
     document.getElementById('fIntolerances').value = b.intolerances;
-    document.getElementById('fSpecialNeeds').value = b.specialNeeds;
+    document.getElementById('fSpecialNeeds').value = b.specialNeeds || '';
     document.getElementById('fNotes').value = b.notes;
     this.setPeopleValue(b.people);
     this.setDogsValue(b.dogs);
-
     if (b.intolerances || b.specialNeeds || b.notes || b.dogs > 0) this.expandOptional();
     else this.collapseOptional();
-
     document.getElementById('fDate').value = b.date;
     this.setFormService(b.service);
     this.setFormZone(b.zone);
@@ -335,10 +329,8 @@ const UI = {
     const service = this._formService;
     const cfg = Config.load();
     const counts = Slots.countBookingsPerSlot(service, date, Bookings.getCached());
-
     const grid = document.getElementById('formSlotGrid');
     grid.innerHTML = '';
-
     for (const slot of Slots.generateSlotsForService(service)) {
       let count = counts[slot] ?? 0;
       const editing = this.state.editingBookingId ? Bookings.getById(this.state.editingBookingId) : null;
@@ -361,12 +353,10 @@ const UI = {
     const service = this._formService;
     const bookings = Bookings.getCached();
     const isAvailable = options.skipFullCheck || Slots.isSlotAvailable(service, date, time, bookings);
-
     if (!isAvailable) {
       this.showSlotSuggestion(time, service, date, bookings);
       return;
     }
-
     document.getElementById('slotSuggestionBox').classList.add('hidden');
     this._selectedTime = time;
     document.querySelectorAll('#formSlotGrid .slot-pill').forEach((pill) => {
@@ -382,14 +372,12 @@ const UI = {
     const bookings = Bookings.getCached();
     const allSlots = Slots.generateSlotsForService(service);
     if (allSlots.length === 0) return;
-
     let fromTime = allSlots[0];
     if (date === Utils.todayISO()) {
       const now = new Date();
       const nowHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       if (Slots.toMinutes(nowHHMM) > Slots.toMinutes(allSlots[0])) fromTime = nowHHMM;
     }
-
     const next = Slots.findNextAvailableSlot(service, date, fromTime, bookings) || allSlots[0];
     this.selectSlot(next);
   },
@@ -448,15 +436,12 @@ const UI = {
     const name = document.getElementById('fName').value.trim();
     const btn = document.getElementById('saveBtn');
     btn.disabled = !(name.length > 0 && !!this._selectedTime);
+    if (!btn.disabled) btn.textContent = 'Salva prenotazione';
   },
 
   async saveForm() {
     if (!DB.canEdit()) return;
-    const saveBtn = document.getElementById('saveBtn');
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Salvo…';
     this.showSyncIndicator(true);
-
     const data = {
       name: document.getElementById('fName').value,
       phone: document.getElementById('fPhone').value,
@@ -471,7 +456,6 @@ const UI = {
       notes: document.getElementById('fNotes').value,
       status: this.state.formStatus,
     };
-
     try {
       if (this.state.editingBookingId) {
         await Bookings.update(this.state.editingBookingId, data);
@@ -484,7 +468,6 @@ const UI = {
       this.toast('Errore nel salvataggio', 'warning');
       console.error(err);
     }
-
     this.showSyncIndicator(false);
     this.state.selectedDate = data.date;
     this.state.selectedService = data.service;
@@ -506,10 +489,6 @@ const UI = {
     this.showScreen('dashboard');
   },
 
-  /* ======================================================================
-     CONFIGURAZIONE
-     ====================================================================== */
-
   renderConfig() {
     const cfg = Config.load();
     document.getElementById('cfgTablesIndoor').value = cfg.tablesIndoor;
@@ -521,21 +500,17 @@ const UI = {
     document.getElementById('cfgSlotDuration').value = cfg.slotDurationMinutes;
     document.getElementById('cfgMaxPerSlot').value = cfg.maxBookingsPerSlot;
     document.getElementById('cfgDoubleShiftDuration').value = cfg.doubleShiftDurationMinutes;
-
     document.querySelectorAll('#cfgDoubleShiftDays .day-toggle').forEach((btn) => {
       btn.classList.toggle('active', cfg.doubleShiftDays.includes(Number(btn.dataset.day)));
     });
-
-    // Mostra bin ID corrente (non la chiave, per sicurezza)
-    const binEl = document.getElementById('cfgBinId');
-    if (binEl) binEl.textContent = Api.getBinId() || '(non configurato)';
+    const roleEl = document.getElementById('cfgRole');
+    if (roleEl) roleEl.textContent = DB.canEdit() ? 'Admin (modifica)' : 'Lettura';
   },
 
   saveConfigFromForm() {
     const activeDays = Array.from(
       document.querySelectorAll('#cfgDoubleShiftDays .day-toggle.active')
     ).map((btn) => Number(btn.dataset.day));
-
     Config.save({
       tablesIndoor: Number(document.getElementById('cfgTablesIndoor').value) || 0,
       tablesOutdoor: Number(document.getElementById('cfgTablesOutdoor').value) || 0,
@@ -548,16 +523,11 @@ const UI = {
       doubleShiftDays: activeDays,
       doubleShiftDurationMinutes: Number(document.getElementById('cfgDoubleShiftDuration').value) || 75,
     });
-
     const confirmEl = document.getElementById('cfgSaveConfirm');
     confirmEl.classList.add('visible');
     clearTimeout(this._cfgConfirmTimer);
     this._cfgConfirmTimer = setTimeout(() => confirmEl.classList.remove('visible'), 1500);
   },
-
-  /* ======================================================================
-     ANTEPRIMA (foglio da screenshottare)
-     ====================================================================== */
 
   openPreview() {
     this.state.previewDate = this.state.selectedDate;
@@ -570,19 +540,15 @@ const UI = {
     document.getElementById('previewDateLabel').textContent = this.dateLabel(previewDate);
     document.getElementById('previewBtnLunch').classList.toggle('active', previewService === 'lunch');
     document.getElementById('previewBtnDinner').classList.toggle('active', previewService === 'dinner');
-
     const bookings = Bookings.getByDateAndService(previewDate, previewService);
     const activeBookings = bookings.filter((b) => b.status !== STATUS.CANCELLED);
     const totalGuests = activeBookings.reduce((sum, b) => sum + b.people, 0);
-
     document.getElementById('previewSheetTitle').textContent =
       `${this.serviceLabel(previewService)} · ${this.dateLabel(previewDate)}`;
     document.getElementById('previewSheetStats').textContent =
-      `${totalGuests} ${totalGuests === 1 ? 'coperto' : 'coperti'} · ${activeBookings.length} ${activeBookings.length === 1 ? 'tavolo' : 'tavoli'}`;
-
+      `${totalGuests} ${totalGuests === 1 ? 'coperto' : 'coperti'} · ${activeBookings.length} tavoli`;
     const list = document.getElementById('previewSheetList');
     list.innerHTML = '';
-
     if (bookings.length === 0) {
       list.innerHTML = `<div class="preview-empty">Nessuna prenotazione per questo servizio.</div>`;
       return;
@@ -594,7 +560,6 @@ const UI = {
     const row = document.createElement('div');
     row.className = 'preview-row';
     if (b.status === STATUS.CANCELLED) row.classList.add('cancelled');
-
     const extras = [];
     if (b.zone !== 'any') extras.push(ZONE_LABELS[b.zone]);
     if (b.dogs > 0) extras.push(`🐾 ${b.dogs}`);
@@ -602,7 +567,6 @@ const UI = {
     if (b.doubleShift) extras.push(`libera ${b.doubleShift.releaseTime}`);
     if (b.specialNeeds) extras.push(b.specialNeeds);
     if (b.status === STATUS.CANCELLED) extras.push('CANCELLATA');
-
     row.innerHTML = `
       <span class="preview-time">${b.time}</span>
       <div class="preview-main">
@@ -612,64 +576,6 @@ const UI = {
       </div>
     `;
     return row;
-  },
-
-  /* ======================================================================
-     SETUP INIZIALE (prima configurazione API Key + Bin ID)
-     ====================================================================== */
-
-  async runSetup() {
-    this.showScreen('setup');
-  },
-
-  async handleSetupSubmit() {
-    const keyInput = document.getElementById('setupApiKey');
-    const binInput = document.getElementById('setupBinId');
-    const btn = document.getElementById('setupSubmitBtn');
-    const errEl = document.getElementById('setupError');
-
-    const key = keyInput.value.trim();
-    const binId = binInput.value.trim();
-
-    if (!key) { errEl.textContent = 'Inserisci la API Key.'; errEl.classList.remove('hidden'); return; }
-
-    btn.disabled = true;
-    btn.textContent = 'Verifico…';
-    errEl.classList.add('hidden');
-
-    // Salva la chiave per poterla usare in testApiKey
-    Api.saveApiKey(key);
-
-    const valid = await Api.testApiKey(key);
-    if (!valid) {
-      errEl.textContent = 'API Key non valida. Ricontrolla su jsonbin.io.';
-      errEl.classList.remove('hidden');
-      btn.disabled = false;
-      btn.textContent = 'Collega';
-      Api.saveApiKey(''); // reset
-      return;
-    }
-
-    if (binId) {
-      // Bin esistente fornito dall'utente (condivisione con colleghi)
-      Api.saveBinId(binId);
-    } else {
-      // Primo accesso: crea un nuovo bin
-      btn.textContent = 'Creo il database…';
-      const newBinId = await Api.createBin();
-      if (!newBinId) {
-        errEl.textContent = 'Errore nella creazione del database. Riprova.';
-        errEl.classList.remove('hidden');
-        btn.disabled = false;
-        btn.textContent = 'Collega';
-        return;
-      }
-    }
-
-    btn.textContent = 'Carico le prenotazioni…';
-    await Bookings.loadAll();
-    this.showScreen('dashboard');
-    this.toast('App configurata e pronta ✓');
   },
 };
 
