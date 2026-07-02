@@ -217,9 +217,6 @@ function bindPreview() {
 }
 
 function bindReadOnly() {
-  if (document.getElementById('roPrevDay')._bound) return;
-  document.getElementById('roPrevDay')._bound = true;
-
   document.getElementById('roPrevDay').addEventListener('click', () => {
     UI.state.selectedDate = UI.shiftDate(UI.state.selectedDate, -1);
     UI.renderReadOnlyView();
@@ -228,7 +225,6 @@ function bindReadOnly() {
     UI.state.selectedDate = UI.shiftDate(UI.state.selectedDate, 1);
     UI.renderReadOnlyView();
   });
-
   setInterval(async () => {
     await Bookings.loadAll();
     UI.renderReadOnlyView();
