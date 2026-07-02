@@ -40,30 +40,34 @@ function bindLogin() {
 
 async function enterApp() {
   const canEdit = DB.canEdit();
-  document.querySelectorAll('.fab-new-booking').forEach(el => {
-    el.classList.toggle('hidden', !canEdit);
-  });
 
   UI.state.selectedDate    = Utils.todayISO();
   UI.state.selectedService = Utils.currentService();
   UI.state.previewDate     = UI.state.selectedDate;
   UI.state.previewService  = UI.state.selectedService;
 
-  bindAll();
-
   UI.showSyncIndicator(true);
   await Bookings.loadAll();
   UI.showSyncIndicator(false);
 
   document.getElementById('screen-login').classList.remove('active');
-  document.getElementById('bottomNav').style.display = 'flex';
-  UI.showScreen('dashboard');
+
+  if (canEdit) {
+    document.querySelectorAll('.fab-new-booking').forEach(el => el.classList.remove('hidden'));
+    document.getElementById('bottomNav').style.display = 'flex';
+    bindAll();
+    UI.showScreen('dashboard');
+  } else {
+    document.getElementById('bottomNav').style.display = 'none';
+    bindReadOnly();
+    UI.renderReadOnlyView();
+    UI.showScreen('readonly');
+  }
 }
 
 function bindAll() {
   if (document.getElementById('saveBtn')._bound) return;
   document.getElementById('saveBtn')._bound = true;
-
   bindBottomNav();
   bindDashboard();
   bindList();
@@ -210,6 +214,25 @@ function bindPreview() {
   document.getElementById('previewBtnDinner').addEventListener('click', () => {
     UI.state.previewService = 'dinner'; UI.renderPreview();
   });
+}
+
+function bindReadOnly() {
+  if (document.getElementById('roPrevDay')._bound) return;
+  document.getElementById('roPrevDay')._bound = true;
+
+  document.getElementById('roPrevDay').addEventListener('click', () => {
+    UI.state.selectedDate = UI.shiftDate(UI.state.selectedDate, -1);
+    UI.renderReadOnlyView();
+  });
+  document.getElementById('roNextDay').addEventListener('click', () => {
+    UI.state.selectedDate = UI.shiftDate(UI.state.selectedDate, 1);
+    UI.renderReadOnlyView();
+  });
+
+  setInterval(async () => {
+    await Bookings.loadAll();
+    UI.renderReadOnlyView();
+  }, 60000);
 }
 
 function watchOnlineStatus() {
