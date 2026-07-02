@@ -61,6 +61,9 @@ async function enterApp() {
 }
 
 function bindAll() {
+  if (document.getElementById('saveBtn')._bound) return;
+  document.getElementById('saveBtn')._bound = true;
+
   bindBottomNav();
   bindDashboard();
   bindList();
@@ -174,7 +177,13 @@ function bindForm() {
     const expanded = document.getElementById('optionalToggle').classList.toggle('expanded');
     document.getElementById('optionalFields').classList.toggle('expanded', expanded);
   });
-  document.getElementById('saveBtn').addEventListener('click', () => UI.saveForm());
+  document.getElementById('saveBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('saveBtn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = 'Salvo…';
+    await UI.saveForm();
+  });
   document.getElementById('deleteLink').addEventListener('click', e => {
     e.preventDefault(); UI.confirmDelete();
   });
